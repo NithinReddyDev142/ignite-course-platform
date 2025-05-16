@@ -9,7 +9,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import CourseList from "./pages/CourseList";
+import CoursesDashboard from "./pages/CoursesDashboard";
 import CourseDetail from "./pages/CourseDetail";
 import LessonView from "./pages/LessonView";
 import CourseCreate from "./pages/CourseCreate";
@@ -47,7 +47,7 @@ const App = () => (
               
               <Route path="/courses" element={
                 <ProtectedRoute>
-                  <CourseList />
+                  <CoursesDashboard />
                 </ProtectedRoute>
               } />
               

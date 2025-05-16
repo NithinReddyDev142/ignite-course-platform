@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,7 @@ const Dashboard = () => {
     // For demo purposes, sort by a combination of enrollment status and progress
     const sorted = [...myCourses].sort((a, b) => {
       const progressA = studentProgress.find(p => p.courseId === a.id && p.userId === currentUser?.id);
-      const progressB = studentProgress.find(p => p.courseId === b.id && b.userId === currentUser?.id);
+      const progressB = studentProgress.find(p => p.courseId === b.id && p.userId === currentUser?.id);
       
       // If there's progress, sort by last accessed (for demo, we'll just use progress percentage)
       if (progressA && progressB) {
