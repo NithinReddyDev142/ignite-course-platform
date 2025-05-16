@@ -8,6 +8,7 @@ import { useApp } from "@/contexts/AppContext";
 import Layout from "@/components/Layout";
 import CourseCard from "@/components/CourseCard";
 import { Book, GraduationCap, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
@@ -98,6 +99,16 @@ const Dashboard = () => {
             <p className="text-muted-foreground">
               Welcome back, {currentUser?.name}! {currentUser?.role === "student" ? "Continue your learning journey." : "Manage your courses and students."}
             </p>
+          </div>
+          <div className="mt-4 md:mt-0">
+            <Link to="/courses">
+              <Button variant="outline" className="mr-2">View All Courses</Button>
+            </Link>
+            {currentUser?.role === "instructor" && (
+              <Link to="/create-course">
+                <Button>Create Course</Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -265,3 +276,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
