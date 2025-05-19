@@ -1,7 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { User } from "@/lib/types";
-import { sampleUsers } from "@/lib/sample-data";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -10,16 +9,20 @@ interface AuthContextType {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  register: (name: string, email: string, password: string, role: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// API base URL - update this when deploying
+const API_BASE_URL = 'http://localhost:5000/api';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if user is already logged in (from localStorage in this demo)
+  // Check if user is already logged in
   useEffect(() => {
     const storedUser = localStorage.getItem("lms_current_user");
     if (storedUser) {
@@ -32,25 +35,59 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   }, []);
 
+  const register = async (name: string, email: string, password: string, role: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password, role }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Registration failed');
+      }
+      
+      const userData = await response.json();
+      setCurrentUser(userData);
+      localStorage.setItem("lms_current_user", JSON.stringify(userData));
+      toast.success(`Welcome, ${userData.name}!`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+      toast.error(err instanceof Error ? err.message : "Registration failed");
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch(`${API_BASE_URL}/users/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
       
-      // In a real app, this would be an API call to your backend
-      const user = sampleUsers.find(user => user.email === email);
-      
-      if (user) {
-        // In a demo, any password works. In a real app, verify password
-        setCurrentUser(user);
-        localStorage.setItem("lms_current_user", JSON.stringify(user));
-        toast.success(`Welcome back, ${user.name}!`);
-      } else {
-        throw new Error("Invalid email or password");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
       }
+      
+      const userData = await response.json();
+      setCurrentUser(userData);
+      localStorage.setItem("lms_current_user", JSON.stringify(userData));
+      toast.success(`Welcome back, ${userData.name}!`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred");
       toast.error("Login failed. Please check your credentials.");
@@ -64,10 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // In a real app, this would include an API call to invalidate the session
+      // In a real app with JWT, you might want to invalidate the token on the server
       setCurrentUser(null);
       localStorage.removeItem("lms_current_user");
       toast.info("You have been logged out successfully");
@@ -80,7 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, isLoading, error, login, logout }}>
+    <AuthContext.Provider value={{ currentUser, isLoading, error, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );

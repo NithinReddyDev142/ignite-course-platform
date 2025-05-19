@@ -1,7 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { Course, StudentProgress, LearningPath } from "@/lib/types";
-import { sampleCourses, sampleStudentProgress, sampleLearningPaths } from "@/lib/sample-data";
 import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
 
@@ -19,15 +18,19 @@ interface AppContextType {
   createCourse: (course: Partial<Course>) => void;
   getLearningPathById: (id: string) => LearningPath | undefined;
   createLearningPath: (path: Partial<LearningPath>) => void;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// API base URL - update this when deploying
+const API_BASE_URL = 'http://localhost:5000/api';
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { currentUser } = useAuth();
-  const [courses, setCourses] = useState<Course[]>(sampleCourses);
-  const [studentProgress, setStudentProgress] = useState<StudentProgress[]>(sampleStudentProgress);
-  const [learningPaths, setLearningPaths] = useState<LearningPath[]>(sampleLearningPaths);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [studentProgress, setStudentProgress] = useState<StudentProgress[]>([]);
+  const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +40,78 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ? courses.filter(course => course.instructorId === currentUser.id)
       : courses.filter(course => course.enrolledStudents.includes(currentUser.id))
     : [];
+
+  // Fetch data from API
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/courses`);
+      if (!response.ok) throw new Error('Failed to fetch courses');
+      const data = await response.json();
+      setCourses(data);
+    } catch (err) {
+      console.error('Error fetching courses:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch courses');
+    }
+  };
+
+  const fetchLearningPaths = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/learning-paths`);
+      if (!response.ok) throw new Error('Failed to fetch learning paths');
+      const data = await response.json();
+      setLearningPaths(data);
+    } catch (err) {
+      console.error('Error fetching learning paths:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch learning paths');
+    }
+  };
+
+  const fetchUserProgress = async () => {
+    if (!currentUser) return;
+    
+    try {
+      // For each enrolled course, fetch progress
+      const progressPromises = myCourses.map(async (course) => {
+        const response = await fetch(`${API_BASE_URL}/progress/${currentUser.id}/${course.id}`);
+        if (!response.ok) return null; // No progress yet is fine
+        return response.json();
+      });
+      
+      const progressResults = await Promise.all(progressPromises);
+      setStudentProgress(progressResults.filter(Boolean));
+    } catch (err) {
+      console.error('Error fetching user progress:', err);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      await fetchCourses();
+      await fetchLearningPaths();
+      setLoading(false);
+    };
+    
+    loadInitialData();
+  }, []);
+
+  // Fetch user's progress when user or courses change
+  useEffect(() => {
+    if (currentUser && courses.length > 0) {
+      fetchUserProgress();
+    }
+  }, [currentUser, courses]);
+
+  const refreshData = async () => {
+    setLoading(true);
+    await fetchCourses();
+    await fetchLearningPaths();
+    if (currentUser) {
+      await fetchUserProgress();
+    }
+    setLoading(false);
+  };
 
   const getCourseById = (id: string) => {
     return courses.find(course => course.id === id);
@@ -53,7 +128,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
-  const enrollInCourse = (courseId: string) => {
+  const enrollInCourse = async (courseId: string) => {
     if (!currentUser) {
       toast.error("You must be logged in to enroll in a course");
       return;
@@ -62,120 +137,83 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     
     try {
-      // Update the course
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/enroll`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: currentUser.id }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to enroll in course');
+      }
+      
+      // Update local state after successful enrollment
       setCourses(prevCourses => 
         prevCourses.map(course => {
           if (course.id === courseId) {
-            // Check if already enrolled
-            if (course.enrolledStudents.includes(currentUser.id)) {
-              toast.info("You are already enrolled in this course");
-              return course;
-            }
-            
-            const updatedCourse = {
+            return {
               ...course,
               enrolledStudents: [...course.enrolledStudents, currentUser.id]
             };
-            
-            // Create new progress entry
-            const newProgress: StudentProgress = {
-              userId: currentUser.id,
-              courseId,
-              completedLessons: [],
-              overallProgress: 0,
-              quizScores: []
-            };
-            
-            setStudentProgress(prev => [...prev, newProgress]);
-            toast.success(`Successfully enrolled in "${course.title}"`);
-            
-            return updatedCourse;
           }
           return course;
         })
       );
+      
+      toast.success(`Successfully enrolled in course`);
+      
+      // Refresh progress data
+      await fetchUserProgress();
     } catch (err) {
-      setError("Failed to enroll in course");
-      toast.error("Failed to enroll in course");
+      setError(err instanceof Error ? err.message : "Failed to enroll in course");
+      toast.error(err instanceof Error ? err.message : "Failed to enroll in course");
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateProgress = (courseId: string, lessonId: string) => {
+  const updateProgress = async (courseId: string, lessonId: string) => {
     if (!currentUser) return;
 
     setLoading(true);
     
     try {
-      // Find existing progress or create new one
-      const existingProgress = studentProgress.find(
-        p => p.userId === currentUser.id && p.courseId === courseId
+      const response = await fetch(`${API_BASE_URL}/progress/${currentUser.id}/${courseId}/lesson`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ lessonId }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update progress');
+      }
+      
+      const updatedProgress = await response.json();
+      
+      // Update local state
+      setStudentProgress(prev => 
+        prev.map(progress => 
+          progress.userId === currentUser.id && progress.courseId === courseId
+            ? updatedProgress
+            : progress
+        )
       );
       
-      if (existingProgress) {
-        // Update existing progress
-        setStudentProgress(prevProgress => 
-          prevProgress.map(progress => {
-            if (progress.userId === currentUser.id && progress.courseId === courseId) {
-              // Check if lesson already completed
-              if (progress.completedLessons.includes(lessonId)) {
-                return progress;
-              }
-              
-              // Add to completed lessons
-              const updatedCompletedLessons = [...progress.completedLessons, lessonId];
-              
-              // Calculate new overall progress
-              const course = courses.find(c => c.id === courseId);
-              let totalLessons = 0;
-              if (course) {
-                course.modules.forEach(module => {
-                  totalLessons += module.lessons.length;
-                });
-              }
-              
-              const newOverallProgress = totalLessons > 0
-                ? Math.round((updatedCompletedLessons.length / totalLessons) * 100)
-                : 0;
-              
-              toast.success("Progress updated successfully");
-              
-              return {
-                ...progress,
-                completedLessons: updatedCompletedLessons,
-                lastAccessedLesson: lessonId,
-                overallProgress: newOverallProgress
-              };
-            }
-            return progress;
-          })
-        );
-      } else {
-        // Create new progress entry
-        const course = courses.find(c => c.id === courseId);
-        let totalLessons = 0;
-        if (course) {
-          course.modules.forEach(module => {
-            totalLessons += module.lessons.length;
-          });
-        }
-        
-        const newProgress: StudentProgress = {
-          userId: currentUser.id,
-          courseId,
-          completedLessons: [lessonId],
-          lastAccessedLesson: lessonId,
-          overallProgress: totalLessons > 0 ? Math.round((1 / totalLessons) * 100) : 0,
-          quizScores: []
-        };
-        
-        setStudentProgress(prev => [...prev, newProgress]);
-        toast.success("Progress started for this course");
+      // If this is a new progress entry, add it to the array
+      if (!studentProgress.some(p => p.userId === currentUser.id && p.courseId === courseId)) {
+        setStudentProgress(prev => [...prev, updatedProgress]);
       }
+      
+      toast.success("Progress updated successfully");
     } catch (err) {
-      setError("Failed to update progress");
+      setError(err instanceof Error ? err.message : "Failed to update progress");
       toast.error("Failed to update progress");
       console.error(err);
     } finally {
@@ -183,7 +221,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const createCourse = (courseData: Partial<Course>) => {
+  const createCourse = async (courseData: Partial<Course>) => {
     if (!currentUser || currentUser.role !== "instructor") {
       toast.error("You must be an instructor to create courses");
       return;
@@ -192,25 +230,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     
     try {
-      const newCourse: Course = {
-        id: `course${courses.length + 1}`,
-        title: courseData.title || "Untitled Course",
-        description: courseData.description || "No description provided",
-        instructorId: currentUser.id,
-        instructorName: currentUser.name,
-        thumbnail: courseData.thumbnail || "https://via.placeholder.com/500x300?text=Course+Thumbnail",
-        duration: courseData.duration || "Not specified",
-        modules: courseData.modules || [],
-        enrolledStudents: [],
-        category: courseData.category || "Uncategorized",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      const response = await fetch(`${API_BASE_URL}/courses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...courseData,
+          instructorId: currentUser.id,
+        }),
+      });
       
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create course');
+      }
+      
+      const newCourse = await response.json();
       setCourses(prevCourses => [...prevCourses, newCourse]);
       toast.success(`Course "${newCourse.title}" created successfully`);
     } catch (err) {
-      setError("Failed to create course");
+      setError(err instanceof Error ? err.message : "Failed to create course");
       toast.error("Failed to create course");
       console.error(err);
     } finally {
@@ -218,7 +258,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const createLearningPath = (pathData: Partial<LearningPath>) => {
+  const createLearningPath = async (pathData: Partial<LearningPath>) => {
     if (!currentUser || currentUser.role !== "instructor") {
       toast.error("You must be an instructor to create learning paths");
       return;
@@ -227,18 +267,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     
     try {
-      const newPath: LearningPath = {
-        id: `path${learningPaths.length + 1}`,
-        title: pathData.title || "Untitled Learning Path",
-        description: pathData.description || "No description provided",
-        courses: pathData.courses || [],
-        createdBy: currentUser.id,
-      };
+      const response = await fetch(`${API_BASE_URL}/learning-paths`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...pathData,
+          createdBy: currentUser.id,
+        }),
+      });
       
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create learning path');
+      }
+      
+      const newPath = await response.json();
       setLearningPaths(prevPaths => [...prevPaths, newPath]);
       toast.success(`Learning path "${newPath.title}" created successfully`);
     } catch (err) {
-      setError("Failed to create learning path");
+      setError(err instanceof Error ? err.message : "Failed to create learning path");
       toast.error("Failed to create learning path");
       console.error(err);
     } finally {
@@ -262,6 +311,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         createCourse,
         getLearningPathById,
         createLearningPath,
+        refreshData,
       }}
     >
       {children}
