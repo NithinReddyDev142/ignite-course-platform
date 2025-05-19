@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import CoursesDashboard from "../CoursesDashboard";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import '@testing-library/jest-dom';
 
 // Mock the hooks
 vi.mock("@/contexts/AuthContext", async () => {
