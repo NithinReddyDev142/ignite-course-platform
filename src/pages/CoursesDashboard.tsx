@@ -38,7 +38,7 @@ const CoursesDashboard = () => {
   const { courses, myCourses, studentProgress } = useApp();
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Get unique categories from courses
@@ -51,7 +51,7 @@ const CoursesDashboard = () => {
         course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         course.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory =
-        categoryFilter === "" || course.category === categoryFilter;
+        categoryFilter === "all" || course.category === categoryFilter;
       return matchesSearch && matchesCategory;
     }
   );
@@ -170,7 +170,7 @@ const CoursesDashboard = () => {
               <SelectValue placeholder="Filter by category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
               {categories.map((category) => (
                 <SelectItem key={category} value={category}>
                   {category}
@@ -263,7 +263,7 @@ const CoursesDashboard = () => {
               <div className="text-center py-12">
                 <h3 className="text-xl font-semibold mb-2">No Courses Found</h3>
                 <p className="text-muted-foreground mb-6">
-                  {searchQuery || categoryFilter
+                  {searchQuery || categoryFilter !== "all"
                     ? "Try adjusting your search or filters"
                     : "There are no courses available at the moment"}
                 </p>
