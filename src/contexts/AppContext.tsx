@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { Course, StudentProgress, LearningPath } from "@/lib/types";
 import { useAuth } from "./AuthContext";
@@ -23,7 +22,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// API base URL - update this when deploying
+// Use the same API base URL as in AuthContext
 const API_BASE_URL = 'http://localhost:5000/api';
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {

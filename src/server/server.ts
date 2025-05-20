@@ -13,9 +13,9 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS configuration - Allow requests from any origin during development
+// CORS configuration - Allow requests from any origin
 app.use(cors({
-  origin: '*', // In production, you should specify your frontend domain
+  origin: '*', // In production, specify allowed origins
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

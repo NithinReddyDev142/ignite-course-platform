@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { User } from "@/lib/types";
 import { toast } from "sonner";
@@ -14,10 +13,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// API base URL - updating to use a deployed API or localhost based on environment
-const API_BASE_URL = window.location.hostname === 'localhost' 
-  ? 'http://localhost:5000/api' 
-  : 'https://lms-api.onrender.com/api'; // This is a placeholder - you should deploy your API
+// Use a single API_BASE_URL that works in both development and production
+const API_BASE_URL = 'http://localhost:5000/api';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
