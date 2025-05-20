@@ -1,11 +1,14 @@
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import mongoose from 'mongoose';
 import { connectDB } from './config/database';
 import userRoutes from './routes/userRoutes';
 import courseRoutes from './routes/courseRoutes';
 import progressRoutes from './routes/progressRoutes';
 import learningPathRoutes from './routes/learningPathRoutes';
+import bcrypt from 'bcryptjs';
+import User from './models/User';
 
 // Connect to MongoDB - this will be awaited to ensure connection before starting the server
 (async () => {
@@ -23,13 +26,13 @@ import learningPathRoutes from './routes/learningPathRoutes';
       credentials: true
     }));
 
+    app.use(express.json());
+
     // Add error handling middleware
-    app.use((err, req, res, next) => {
+    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
       console.error('Global error handler:', err);
       res.status(500).json({ message: 'Internal server error', error: err.message });
     });
-
-    app.use(express.json());
 
     // Routes
     app.use('/api/users', userRoutes);
@@ -48,10 +51,6 @@ import learningPathRoutes from './routes/learningPathRoutes';
     });
 
     // Create test users on server start
-    import User from './models/User';
-    import bcrypt from 'bcryptjs';
-    import mongoose from 'mongoose';
-
     const createTestUsers = async () => {
       try {
         const testUsers = [
