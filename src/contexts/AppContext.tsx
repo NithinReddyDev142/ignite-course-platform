@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { Course, StudentProgress, LearningPath } from "@/lib/types";
 import { useAuth } from "./AuthContext";
@@ -22,8 +23,10 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Use the same API base URL as in AuthContext
-const API_BASE_URL = 'http://localhost:5000/api';
+// Updated API base URL to match AuthContext
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:5000/api'
+  : `https://${window.location.hostname.replace('.lovableproject.com', '')}-5000.app.github.dev/api`;
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { currentUser } = useAuth();

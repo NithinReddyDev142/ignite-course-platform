@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { User } from "@/lib/types";
 import { toast } from "sonner";
@@ -13,8 +14,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Use a single API_BASE_URL that works in both development and production
-const API_BASE_URL = 'http://localhost:5000/api';
+// Updated API base URL to work in both development and production
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:5000/api'
+  : `https://${window.location.hostname.replace('.lovableproject.com', '')}-5000.app.github.dev/api`;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
