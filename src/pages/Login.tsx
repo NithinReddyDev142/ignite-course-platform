@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { sampleUsers } from "@/lib/sample-data";
+import { toast } from "sonner";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -27,6 +27,7 @@ const Login = () => {
     e.preventDefault();
     
     if (!email || !password) {
+      toast.error("Please enter both email and password");
       return;
     }
     
@@ -35,6 +36,7 @@ const Login = () => {
     try {
       console.log("Attempting to login with:", { email, password });
       await login(email, password);
+      toast.success("Login successful!");
       navigate(from, { replace: true });
     } catch (error) {
       console.error("Login error:", error);
@@ -48,6 +50,7 @@ const Login = () => {
     e.preventDefault();
     
     if (!name || !email || !password) {
+      toast.error("Please fill in all required fields");
       return;
     }
     
@@ -56,6 +59,7 @@ const Login = () => {
     try {
       console.log("Attempting to register with:", { name, email, password, role });
       await register(name, email, password, role);
+      toast.success("Registration successful!");
       navigate(from, { replace: true });
     } catch (error) {
       console.error("Registration error:", error);
@@ -66,11 +70,14 @@ const Login = () => {
   };
   
   const setDemoUser = (userType: "instructor" | "student") => {
-    const demoUser = sampleUsers.find(user => user.role === userType);
-    if (demoUser) {
-      setEmail(demoUser.email);
-      setPassword("password"); // Any password works in this demo
+    if (userType === "instructor") {
+      setEmail("instructor@example.com");
+      setPassword("password123");
+    } else {
+      setEmail("student@example.com");
+      setPassword("password123");
     }
+    toast.info(`Demo ${userType} credentials loaded. Click Sign In to continue.`);
   };
 
   return (

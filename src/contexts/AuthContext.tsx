@@ -14,10 +14,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Updated API base URL to work in both development and production
-const API_BASE_URL = window.location.hostname === 'localhost' 
+// Simplified API URL that works in both development and preview environments
+const API_BASE_URL = import.meta.env.DEV 
   ? 'http://localhost:5000/api'
-  : `https://${window.location.hostname.replace('.lovableproject.com', '')}-5000.app.github.dev/api`;
+  : '/api';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
