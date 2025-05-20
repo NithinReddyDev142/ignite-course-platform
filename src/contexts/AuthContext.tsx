@@ -14,8 +14,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// API base URL - update this when deploying
-const API_BASE_URL = 'http://localhost:5000/api';
+// API base URL - updating to use a deployed API or localhost based on environment
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:5000/api' 
+  : 'https://lms-api.onrender.com/api'; // This is a placeholder - you should deploy your API
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -40,6 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     
     try {
+      console.log(`Attempting to register user at ${API_BASE_URL}/users`);
       const response = await fetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         headers: {
@@ -71,6 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     
     try {
+      console.log(`Attempting to login at ${API_BASE_URL}/users/login`);
       const response = await fetch(`${API_BASE_URL}/users/login`, {
         method: 'POST',
         headers: {
@@ -79,18 +83,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({ email, password }),
       });
       
+      console.log('Login response status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Login failed');
       }
       
       const userData = await response.json();
+      console.log('Login successful, user data:', userData);
       setCurrentUser(userData);
       localStorage.setItem("lms_current_user", JSON.stringify(userData));
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (err) {
+      console.error('Login error details:', err);
       setError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast.error("Login failed. Please check your credentials.");
+      toast.error("Login failed. Please check your credentials and try again.");
       throw err;
     } finally {
       setIsLoading(false);

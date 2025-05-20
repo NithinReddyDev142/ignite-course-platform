@@ -1,6 +1,7 @@
 
 import { Request, Response } from 'express';
 import User from '../models/User';
+import bcrypt from 'bcryptjs';
 
 // Get all users
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
@@ -35,6 +36,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
   try {
     const { name, email, password, role, avatar } = req.body;
 
+    console.log('Creating user with data:', { name, email, role });
+
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -42,17 +45,25 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // In a production app, you would hash the password here
+    // Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create user with hashed password
     const user = new User({
       name,
       email,
-      password, // This should be hashed in production
+      password: hashedPassword,
       role: role || 'student',
       avatar,
     });
 
     const savedUser = await user.save();
-    res.status(201).json(savedUser);
+    console.log('User created successfully:', savedUser.id);
+    
+    // Convert to JSON and return (this will exclude password due to schema settings)
+    const userResponse = savedUser.toJSON();
+    res.status(201).json(userResponse);
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ message: 'Server error' });
@@ -63,22 +74,25 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt for email:', email);
 
     // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
+      console.log('Login failed: User not found for email:', email);
       res.status(400).json({ message: 'Invalid credentials' });
       return;
     }
 
-    // In a production app, you would compare hashed passwords
-    const isMatch = user.password === password;
+    // Compare passwords using bcrypt
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log('Login failed: Password mismatch for email:', email);
       res.status(400).json({ message: 'Invalid credentials' });
       return;
     }
 
-    // In a production app, you would create a JWT token here
+    console.log('Login successful for user:', user.id);
     const userData = user.toJSON();
     res.status(200).json(userData);
   } catch (error) {
