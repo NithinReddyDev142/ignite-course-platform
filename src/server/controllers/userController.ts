@@ -84,6 +84,8 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    console.log(`User found: ${user.name}, role: ${user.role}`);
+    
     // Compare passwords using bcrypt
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {

@@ -14,7 +14,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Simplified API URL that works in both development and preview environments
+// Use a more reliable approach for API URL
 const API_BASE_URL = import.meta.env.DEV 
   ? 'http://localhost:5000/api'
   : '/api';
@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     
     try {
-      console.log(`Attempting to login at ${API_BASE_URL}/users/login`);
+      console.log(`Attempting to login at ${API_BASE_URL}/users/login with email: ${email}`);
       const response = await fetch(`${API_BASE_URL}/users/login`, {
         method: 'POST',
         headers: {
@@ -109,7 +109,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     
     try {
-      // In a real app with JWT, you might want to invalidate the token on the server
       setCurrentUser(null);
       localStorage.removeItem("lms_current_user");
       toast.info("You have been logged out successfully");
