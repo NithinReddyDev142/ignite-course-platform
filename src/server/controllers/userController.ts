@@ -74,32 +74,46 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
-    console.log('Login attempt for email:', email);
+    console.log('🔐 Login attempt for email:', email);
+
+    // Validate input
+    if (!email || !password) {
+      console.log('❌ Login failed: Missing email or password');
+      res.status(400).json({ message: 'Email and password are required' });
+      return;
+    }
 
     // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
-      console.log('Login failed: User not found for email:', email);
+      console.log('❌ Login failed: User not found for email:', email);
       res.status(400).json({ message: 'Invalid credentials' });
       return;
     }
 
-    console.log(`User found: ${user.name}, role: ${user.role}`);
+    console.log(`👤 User found: ${user.name}, role: ${user.role}`);
     
     // Compare passwords using bcrypt
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log('Login failed: Password mismatch for email:', email);
+      console.log('❌ Login failed: Password mismatch for email:', email);
       res.status(400).json({ message: 'Invalid credentials' });
       return;
     }
 
-    console.log('Login successful for user:', user.id);
+    console.log('✅ Login successful for user:', user.id);
     const userData = user.toJSON();
-    res.status(200).json(userData);
+    
+    // Ensure we're sending JSON with proper headers
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      user: userData
+    });
   } catch (error) {
-    console.error('Error logging in:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Error logging in:', error);
+    res.status(500).json({ message: 'Server error during login' });
   }
 };
 

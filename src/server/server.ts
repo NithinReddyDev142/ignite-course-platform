@@ -18,39 +18,75 @@ import User from './models/User';
     const app = express();
     const PORT = process.env.PORT || 5000;
 
-    // Enhanced CORS configuration with proper error handling
+    // Enhanced CORS configuration
     app.use(cors({
-      origin: '*', // Allow all origins temporarily for testing
-      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      origin: ['http://localhost:5173', 'https://id-preview--95435341-9712-48d3-886a-854405143a1f.lovable.app'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
       credentials: true
     }));
 
-    app.use(express.json());
+    // Body parsing middleware
+    app.use(express.json({ limit: '10mb' }));
+    app.use(express.urlencoded({ extended: true }));
 
-    // Add error handling middleware
-    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-      console.error('Global error handler:', err);
-      res.status(500).json({ message: 'Internal server error', error: err.message });
+    // Request logging middleware
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      console.log(`${req.method} ${req.path} - Body:`, req.body);
+      next();
     });
 
-    // Routes
+    // API Routes - These must come BEFORE any catch-all routes
     app.use('/api/users', userRoutes);
     app.use('/api/courses', courseRoutes);
     app.use('/api/progress', progressRoutes);
     app.use('/api/learning-paths', learningPathRoutes);
 
-    // Root route for testing API health
-    app.get('/', (_, res) => {
-      res.send({
-        status: 'online',
-        message: 'LMS API is running',
-        mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        time: new Date().toISOString()
+    // Health check endpoint
+    app.get('/api/health', (req: Request, res: Response) => {
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
       });
     });
 
-    // Create test users on server start
+    // Root endpoint
+    app.get('/', (req: Request, res: Response) => {
+      res.json({
+        message: 'LMS API Server is running',
+        endpoints: [
+          'GET /api/health - Health check',
+          'POST /api/users/login - User login',
+          'POST /api/users - Create user',
+          'GET /api/users - Get all users',
+          'GET /api/courses - Get all courses',
+          'GET /api/learning-paths - Get all learning paths'
+        ],
+        mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+      });
+    });
+
+    // Error handling middleware
+    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+      console.error('Server error:', err);
+      res.status(500).json({ 
+        message: 'Internal server error', 
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+      });
+    });
+
+    // 404 handler for unmatched routes
+    app.use((req: Request, res: Response) => {
+      console.log(`404 - Route not found: ${req.method} ${req.path}`);
+      res.status(404).json({ 
+        message: 'Route not found',
+        path: req.path,
+        method: req.method
+      });
+    });
+
+    // Create test users function
     const createTestUsers = async () => {
       try {
         const testUsers = [
@@ -69,39 +105,37 @@ import User from './models/User';
         ];
         
         for (const userData of testUsers) {
-          // Check if user already exists
           const userExists = await User.findOne({ email: userData.email });
           if (!userExists) {
-            // Hash the password
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(userData.password, salt);
             
-            // Create the user
             await User.create({
               ...userData,
               password: hashedPassword
             });
-            console.log(`Test user created: ${userData.email} (${userData.role})`);
+            console.log(`✅ Test user created: ${userData.email} (${userData.role})`);
           } else {
-            console.log(`Test user already exists: ${userData.email}`);
+            console.log(`ℹ️  Test user already exists: ${userData.email}`);
           }
         }
       } catch (error) {
-        console.error('Error creating test users:', error);
+        console.error('❌ Error creating test users:', error);
       }
     };
 
     // Start server
     app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`API available at http://localhost:${PORT}/api`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📡 API available at http://localhost:${PORT}/api`);
+      console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
       
       // Create test users after server starts
       createTestUsers();
     });
     
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 })();

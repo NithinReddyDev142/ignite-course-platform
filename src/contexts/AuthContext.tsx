@@ -74,31 +74,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     
     try {
-      console.log(`Attempting to login at ${API_BASE_URL}/users/login with email: ${email}`);
+      console.log(`🔐 Attempting to login at ${API_BASE_URL}/users/login with email: ${email}`);
+      
       const response = await fetch(`${API_BASE_URL}/users/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ email, password }),
       });
       
-      console.log('Login response status:', response.status);
+      console.log('📡 Login response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
+      // Check if response is actually JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('❌ Response is not JSON, got:', contentType);
+        const textResponse = await response.text();
+        console.error('❌ Response body:', textResponse.substring(0, 200));
+        throw new Error('Server error: Expected JSON response but got HTML. Please ensure the backend server is running.');
       }
       
-      const userData = await response.json();
-      console.log('Login successful, user data:', userData);
+      const responseData = await response.json();
+      console.log('📡 Login response data:', responseData);
+      
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Login failed');
+      }
+      
+      // Handle the new response format
+      const userData = responseData.user || responseData;
+      console.log('✅ Login successful, user data:', userData);
+      
       setCurrentUser(userData);
       localStorage.setItem("lms_current_user", JSON.stringify(userData));
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (err) {
-      console.error('Login error details:', err);
-      setError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast.error("Login failed. Please check your credentials and try again.");
+      console.error('❌ Login error details:', err);
+      const errorMessage = err instanceof Error ? err.message : "Login failed. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
