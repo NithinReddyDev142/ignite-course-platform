@@ -10,17 +10,27 @@ import learningPathRoutes from './routes/learningPathRoutes';
 import bcrypt from 'bcryptjs';
 import User from './models/User';
 
+console.log('🚀 Initializing LMS Server...');
+console.log('📊 Node version:', process.version);
+console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+
 // Connect to MongoDB - this will be awaited to ensure connection before starting the server
 (async () => {
   try {
+    console.log('🔗 Attempting to connect to MongoDB...');
     await connectDB();
+    console.log('✅ MongoDB connection successful!');
     
     const app = express();
     const PORT = process.env.PORT || 5000;
 
     // Enhanced CORS configuration
     app.use(cors({
-      origin: ['http://localhost:5173', 'https://id-preview--95435341-9712-48d3-886a-854405143a1f.lovable.app'],
+      origin: [
+        'http://localhost:5173', 
+        'https://id-preview--95435341-9712-48d3-886a-854405143a1f.lovable.app',
+        'https://95435341-9712-48d3-886a-854405143a1f.lovableproject.com'
+      ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
       credentials: true
@@ -32,7 +42,10 @@ import User from './models/User';
 
     // Request logging middleware
     app.use((req: Request, res: Response, next: NextFunction) => {
-      console.log(`${req.method} ${req.path} - Body:`, req.body);
+      console.log(`📡 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+      if (req.body && Object.keys(req.body).length > 0) {
+        console.log('📦 Request body:', req.body);
+      }
       next();
     });
 
@@ -44,17 +57,23 @@ import User from './models/User';
 
     // Health check endpoint
     app.get('/api/health', (req: Request, res: Response) => {
-      res.json({
+      const healthStatus = {
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
-      });
+        mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        mongoState: mongoose.connection.readyState,
+        database: mongoose.connection.name,
+        server: 'LMS Backend API v1.0'
+      };
+      console.log('🏥 Health check requested:', healthStatus);
+      res.json(healthStatus);
     });
 
     // Root endpoint
     app.get('/', (req: Request, res: Response) => {
       res.json({
-        message: 'LMS API Server is running',
+        message: 'LMS API Server is running successfully! 🎉',
+        timestamp: new Date().toISOString(),
         endpoints: [
           'GET /api/health - Health check',
           'POST /api/users/login - User login',
@@ -63,32 +82,36 @@ import User from './models/User';
           'GET /api/courses - Get all courses',
           'GET /api/learning-paths - Get all learning paths'
         ],
-        mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+        mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        database: mongoose.connection.name
       });
     });
 
     // Error handling middleware
     app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-      console.error('Server error:', err);
+      console.error('❌ Server error:', err);
       res.status(500).json({ 
         message: 'Internal server error', 
-        error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+        timestamp: new Date().toISOString()
       });
     });
 
     // 404 handler for unmatched routes
     app.use((req: Request, res: Response) => {
-      console.log(`404 - Route not found: ${req.method} ${req.path}`);
+      console.log(`❌ 404 - Route not found: ${req.method} ${req.path}`);
       res.status(404).json({ 
         message: 'Route not found',
         path: req.path,
-        method: req.method
+        method: req.method,
+        timestamp: new Date().toISOString()
       });
     });
 
     // Create test users function
     const createTestUsers = async () => {
       try {
+        console.log('👥 Creating test users...');
         const testUsers = [
           {
             name: 'John Student',
@@ -119,6 +142,7 @@ import User from './models/User';
             console.log(`ℹ️  Test user already exists: ${userData.email}`);
           }
         }
+        console.log('👥 Test users setup complete!');
       } catch (error) {
         console.error('❌ Error creating test users:', error);
       }
@@ -126,9 +150,12 @@ import User from './models/User';
 
     // Start server
     app.listen(PORT, () => {
+      console.log('🎉 ================================');
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📡 API available at http://localhost:${PORT}/api`);
       console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`🌐 Frontend should connect to: http://localhost:${PORT}`);
+      console.log('🎉 ================================');
       
       // Create test users after server starts
       createTestUsers();
@@ -136,6 +163,10 @@ import User from './models/User';
     
   } catch (error) {
     console.error('❌ Failed to start server:', error);
+    console.error('💡 Common issues:');
+    console.error('   - Check MongoDB connection string in .env');
+    console.error('   - Ensure MongoDB Atlas allows connections from your IP');
+    console.error('   - Verify your MongoDB credentials are correct');
     process.exit(1);
   }
 })();
