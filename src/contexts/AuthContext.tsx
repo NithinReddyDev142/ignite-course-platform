@@ -2,6 +2,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { User } from "@/lib/types";
 import { toast } from "sonner";
+import { dummyAuthService } from "@/lib/dummyAuth";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -13,11 +14,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Use a more reliable approach for API URL
-const API_BASE_URL = import.meta.env.DEV 
-  ? 'http://localhost:5000/api'
-  : '/api';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -42,27 +38,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     
     try {
-      console.log(`Attempting to register user at ${API_BASE_URL}/users`);
-      const response = await fetch(`${API_BASE_URL}/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, email, password, role }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
-      }
-      
-      const userData = await response.json();
+      console.log('🔐 Attempting to register with dummy auth:', { name, email, role });
+      const userData = await dummyAuthService.register(name, email, password, role as 'instructor' | 'student');
       setCurrentUser(userData);
       localStorage.setItem("lms_current_user", JSON.stringify(userData));
       toast.success(`Welcome, ${userData.name}!`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
-      toast.error(err instanceof Error ? err.message : "Registration failed");
+      const errorMessage = err instanceof Error ? err.message : "Registration failed";
+      setError(errorMessage);
+      toast.error(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -74,45 +58,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     
     try {
-      console.log(`🔐 Attempting to login at ${API_BASE_URL}/users/login with email: ${email}`);
-      
-      const response = await fetch(`${API_BASE_URL}/users/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      console.log('📡 Login response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      // Check if response is actually JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('❌ Response is not JSON, got:', contentType);
-        const textResponse = await response.text();
-        console.error('❌ Response body:', textResponse.substring(0, 200));
-        throw new Error('Server error: Expected JSON response but got HTML. Please ensure the backend server is running.');
-      }
-      
-      const responseData = await response.json();
-      console.log('📡 Login response data:', responseData);
-      
-      if (!response.ok) {
-        throw new Error(responseData.message || 'Login failed');
-      }
-      
-      // Handle the new response format
-      const userData = responseData.user || responseData;
+      console.log('🔐 Attempting to login with dummy auth:', { email });
+      const userData = await dummyAuthService.login(email, password);
       console.log('✅ Login successful, user data:', userData);
       
       setCurrentUser(userData);
       localStorage.setItem("lms_current_user", JSON.stringify(userData));
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (err) {
-      console.error('❌ Login error details:', err);
+      console.error('❌ Login error:', err);
       const errorMessage = err instanceof Error ? err.message : "Login failed. Please try again.";
       setError(errorMessage);
       toast.error(errorMessage);
